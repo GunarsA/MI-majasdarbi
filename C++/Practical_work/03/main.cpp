@@ -29,10 +29,13 @@
 #include <cstring>
 #include <vector>
 #include <limits>
+#include <windows.h>
 
 #define NAME_LENGTH 20
 
 using namespace std;
+
+HANDLE h = GetStdHandle(STD_OUTPUT_HANDLE);
 
 enum eOptions
 {
@@ -48,6 +51,7 @@ enum eOptions
     MostCheap,
     Random,
     Sum,
+    MinAlert,
     End
 };
 
@@ -63,6 +67,7 @@ class Storage
 {
 private:
     vector<Product> data;
+    int min_product_count;
 
     void printTop3Table()
     {
@@ -96,12 +101,40 @@ public:
         }
 
         fileIn.close();
+        //
+        fileIn.open("min_alert.bin", ios::in | ios::binary);
+        if (fileIn.is_open())
+        {
+            fileIn.read((char *)&min_product_count, sizeof(int));
+        }
+        else
+        {
+            min_product_count = 0;
+        }
+        fileIn.close();
+        //
+        bool flag = true;
+        for (auto product : data)
+        {
+            if (product.available < min_product_count)
+            {
+                SetConsoleTextAttribute(h, 4);
+                if (flag)
+                {
+                    cout << "!!! Critic product availability !!!" << endl;
+                    flag = false;
+                }
+                cout << "Name: " << product.name << ", available: " << product.available << endl;
+                SetConsoleTextAttribute(h, 15);
+            }
+        }
     }
 
     ~Storage()
     {
-        ofstream fileOut("storage.bin", ios::out | ios::binary);
+        ofstream fileOut;
 
+        fileOut.open("storage.bin", ios::out | ios::binary);
         size_t size = data.size();
         fileOut.write((char *)&size, sizeof(size));
 
@@ -110,6 +143,10 @@ public:
         fileOut.close();
 
         cout << "Saved " << size << " product(s) to file!" << endl;
+
+        fileOut.open("min_alert.bin", ios::out | ios::binary);
+        fileOut.write((char *)&min_product_count, sizeof(int));
+        fileOut.close();
     }
 
     void add()
@@ -344,6 +381,13 @@ public:
         cout << "No " << (count ? "more " : "") << "products match the query!" << endl;
     }
 
+    void minProductAlert()
+    {
+        cout << "Current minimum limit: " << min_product_count << endl;
+        cout << "New minimum limit: ";
+        cin >> min_product_count;
+    }
+
     int menu()
     {
         cout << "------------------------------------------" << endl;
@@ -360,7 +404,8 @@ public:
         cout << "10 - Least expensive product Top 3" << endl;
         cout << "11 - Random product" << endl;
         cout << "12 - Max sum" << endl;
-        cout << "13 - Stop execution" << endl;
+        cout << "13 - Change product minimum alert" << endl;
+        cout << "14 - Stop execution" << endl;
         cout << "------------------------------------------" << endl;
         int op;
         cout << "Choice: ";
@@ -373,7 +418,7 @@ int main()
 {
     Storage storage;
     int op = 0;
-    while (op != 13)
+    while (op != 14)
     {
         op = storage.menu();
         switch (op - 1)
@@ -413,6 +458,9 @@ int main()
             break;
         case (Sum):
             storage.sum();
+            break;
+        case (MinAlert):
+            storage.minProductAlert();
             break;
         case (End):
             return 0;
